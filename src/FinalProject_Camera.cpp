@@ -43,7 +43,7 @@ int main(int argc, const char *argv[])
     string yoloBasePath = dataPath + "dat/yolo/";
     string yoloClassesFile = yoloBasePath + "coco.names";
     string yoloModelConfiguration = yoloBasePath + "yolov3.cfg";
-    string yoloModelWeights = yoloBasePath + "yolov3.weights";
+    string yoloModelWeights = yoloBasePath + "yolov3.weights.1";
 
     // Lidar
     string lidarPrefix = "KITTI/2011_09_26/velodyne_points/data/000000";
@@ -93,6 +93,10 @@ int main(int argc, const char *argv[])
         frame.cameraImg = img;
         dataBuffer.push_back(frame);
 
+        if (dataBuffer.size() > dataBufferSize)
+        {
+            dataBuffer.erase(dataBuffer.begin());
+        }
         cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
 
 
@@ -139,8 +143,6 @@ int main(int argc, const char *argv[])
         cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
         
         
-        // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-        continue; // skips directly to the next image without processing what comes beneath
 
         /* DETECT IMAGE KEYPOINTS */
 
@@ -158,7 +160,7 @@ int main(int argc, const char *argv[])
         }
         else
         {
-            //...
+            detKeypointsModern(keypoints, imgGray, detectorType, true);
         }
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -192,6 +194,8 @@ int main(int argc, const char *argv[])
 
         cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
 
+        // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
+        continue; // skips directly to the next image without processing what comes beneath
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
