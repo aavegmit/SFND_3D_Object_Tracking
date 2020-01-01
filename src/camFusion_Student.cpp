@@ -151,8 +151,73 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     // ...
 }
 
+vector<int> findBoundingBoxes(DataFrame &frame, cv::KeyPoint keypoint) {
+    vector<int> boundingBoxes;
+    for (auto it = frame.boundingBoxes.begin(); it != frame.boundingBoxes.end(); ++it) {
+        if ((*it).roi.contains(keypoint.pt)) {
+            boundingBoxes.push_back((*it).boxID);
+        }
+    }
+    return boundingBoxes;
+}
+
+void initialise_map_or_nothing(std::map<int, std::map<int, int>> &mmap, int idx1, int idx2) {
+
+    if (mmap.find(idx1) == mmap.end() || mmap[idx1].find(idx2) == mmap[idx1].end()) {
+        mmap[idx1][idx2] = 0;
+    }
+    return;
+}
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // ...
+
+    // Multimap of (current bounding box id, prev bounding box id)
+    //std::multimap<int, int> boundingBoxesMatches;
+    std::map<int, std::map<int, int>> boundingBoxesMatches;
+
+    for (auto it = matches.begin(); it != matches.end(); ++it) {
+        auto prevKeypoint = prevFrame.keypoints[(*it).queryIdx];
+        auto currKeypoint = currFrame.keypoints[(*it).trainIdx];
+        
+        auto prevBoundingBoxes = findBoundingBoxes(prevFrame, prevKeypoint);
+        auto currBoundingBoxes = findBoundingBoxes(currFrame, currKeypoint);
+
+        if (prevBoundingBoxes.size() > 0 && currBoundingBoxes.size() > 0) {
+            //std::cout << "Box id: " << prevBoundingBoxes[0] << " matches with box id: " << currBoundingBoxes[0] << std::endl;
+            for (int pi = 0; pi < prevBoundingBoxes.size(); ++pi) {
+                for (int ci = 0; ci < currBoundingBoxes.size(); ++ci) {
+                    //boundingBoxesMatches.insert(std::pair <int, int> (currBoundingBoxes[ci], prevBoundingBoxes[pi])) ;
+                    initialise_map_or_nothing(boundingBoxesMatches,currBoundingBoxes[ci],prevBoundingBoxes[pi]);
+                    ++boundingBoxesMatches[currBoundingBoxes[ci]][prevBoundingBoxes[pi]];
+                }
+            }
+        }
+    }
+
+    for (auto itr = boundingBoxesMatches.begin(); itr != boundingBoxesMatches.end(); ++itr) {
+        int prevBB = -1;
+        int maxCount = -1;
+        for (auto itr2 = itr->second.begin(); itr2 != itr->second.end(); ++itr2) {
+            // std::cout << "Box id: " 
+            // << itr->first 
+            // << " matches with box id: " 
+            // << itr2->first 
+            // << " "
+            // << itr2->second
+            // << " times" 
+            // << std::endl;
+
+            if (itr2->second > maxCount) {
+                maxCount = itr2->second;
+                prevBB = itr2->first;
+            }
+        } // Inner loop ends
+
+        if (prevBB > -1) {
+            bbBestMatches[prevBB] = itr->first;
+            //std::cout << "** Current box id: " << itr->first << " matched with " << prevBB << std::endl;
+        }
+    }
+
 }
