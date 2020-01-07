@@ -144,11 +144,37 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
     // ...
 }
 
+// Find the closest point in X direction after removing the outliers
+// We remove the outliers by considering the 50th percentile value
+// instead of the min (100th percentile)
+double closestPointWithoutOutliers(std::vector<LidarPoint> &lidarPoints) {
+    double perc = .50;
+    vector<double> lidarPointsX;
+    for (auto point : lidarPoints) {
+        lidarPointsX.push_back(point.x);
+    }
+    sort(lidarPointsX.begin(), lidarPointsX.end());
+    int ind = lidarPointsX.size() * (1 - perc);
+    // std::cout << "Min point in Lidar is : " << lidarPointsX[0] 
+    // << " 99.9 percentile: " << lidarPointsX[ind] 
+    // << " Max: " << lidarPointsX[lidarPointsX.size() - 1] << std::endl;
+    return lidarPointsX[ind];
+}
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    double dt = 1 / frameRate;
+
+    // Find the closest point in previous frame
+    double minXPrev = closestPointWithoutOutliers(lidarPointsPrev);
+
+    // Find the closest point in current frame
+    double minXCurr = closestPointWithoutOutliers(lidarPointsCurr);
+
+    // calculate the TTC
+    TTC = minXCurr * dt / (minXPrev - minXCurr); 
+    std::cout << "Frame rate: " << frameRate << " TTC: " << TTC << std::endl;
 }
 
 vector<int> findBoundingBoxes(DataFrame &frame, cv::KeyPoint keypoint) {
