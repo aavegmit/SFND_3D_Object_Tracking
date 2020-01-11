@@ -34,7 +34,7 @@ int main(int argc, const char *argv[])
     string imgBasePath = dataPath + "images/";
     string imgPrefix = "KITTI/2011_09_26/image_02/data/000000"; // left camera, color
     string imgFileType = ".png";
-    int imgStartIndex = 0; // first file index to load (assumes Lidar and camera names have identical naming convention)
+    int imgStartIndex = 1; // first file index to load (assumes Lidar and camera names have identical naming convention)
     int imgEndIndex = 12;   // last file index to load
     int imgStepWidth = 1; 
     int imgFillWidth = 4;  // no. of digits which make up the file index (e.g. img-0001.png)
@@ -72,7 +72,7 @@ int main(int argc, const char *argv[])
     double sensorFrameRate = 10.0 / imgStepWidth; // frames per second for Lidar and camera
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
-    bool bVis = true;            // visualize results
+    bool bVis = false;            // visualize results
 
     /* MAIN LOOP OVER ALL IMAGES */
 
@@ -215,6 +215,7 @@ int main(int argc, const char *argv[])
             (dataBuffer.end() - 1)->kptMatches = matches;
 
             cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
+            // visualize matches between current and previous image
 
             
             /* TRACK 3D OBJECT BOUNDING BOXES */
@@ -268,6 +269,21 @@ int main(int argc, const char *argv[])
                     //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
                     double ttcCamera;
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
+                    if (false)
+                    {
+                        cv::Mat matchImg = ((dataBuffer.end() - 1)->cameraImg).clone();
+                        cv::drawMatches((dataBuffer.end() - 2)->cameraImg, (dataBuffer.end() - 2)->keypoints,
+                                        (dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->keypoints,
+                                        currBB->kptMatches, matchImg,
+                                        cv::Scalar::all(-1), cv::Scalar::all(-1),
+                                        vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+
+                        string windowName = "Matching keypoints between two camera images";
+                        cv::namedWindow(windowName, 7);
+                        cv::imshow(windowName, matchImg);
+                        cout << "Press key to continue to next image" << endl;
+                        cv::waitKey(0); // wait for key to be pressed
+                    }
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
 

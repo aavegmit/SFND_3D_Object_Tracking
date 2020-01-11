@@ -129,11 +129,48 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
     }
 }
 
+double distance(cv::Point2f p, cv::Point2f q) {
+    return sqrt ((p.x - q.x) * (p.x - q.x) + (p.y - q.y) * (p.y - q.y));
+}
 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    // Loop over the matches and fetch the corresponding prev and curr keypoint
+    std::vector<double> distances;
+    std::map<cv::DMatch, double> matchToDistance;
+
+    for (auto match : kptMatches) {
+        auto prevKeypoint = kptsPrev[match.queryIdx];
+        auto currKeypoint = kptsCurr[match.trainIdx];
+        // If the curr keypoint is in the ROI
+        if (boundingBox.roi.contains(currKeypoint.pt)) {
+            // Find the distance between the two points
+            double dist = distance(prevKeypoint.pt, currKeypoint.pt);
+            // std::cout << "Distance between matches: " << dist 
+            // << " prev pt:(" << prevKeypoint.pt.x << "," << prevKeypoint.pt.y << ") - "
+            // << "curr pt:(" << currKeypoint.pt.x << "," << currKeypoint.pt.y << ")"
+            // << std::endl;
+            distances.push_back(dist);
+            matchToDistance[match] = dist;
+        }
+    }
+
+    // Find the median distance
+    sort(distances.begin(), distances.end());
+    double medianDist = distances[distances.size() * 0.5]; 
+
+    // Loop over the mathches_distance map 
+    for (auto it = matchToDistance.begin(); it != matchToDistance.end(); ++it) {
+        if (it->second < (medianDist * 0.50) || it->second > (medianDist * 1.50)) {
+            // This is an outlier, do not consider for the match
+        }
+        else {
+            // add the match to the result vector if the distance is +- 50% of the median
+            boundingBox.kptMatches.push_back(it->first);
+        }
+    }
+
 }
 
 
@@ -141,7 +178,41 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    vector<double> distRatios;
+    for (auto it1 = kptMatches.begin(); it1 != kptMatches.end(); it1++) {
+        cv::KeyPoint kpOuterCurr = kptsCurr.at(it1->trainIdx); 
+        cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
+        for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end(); ++it2) {
+            cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);  // kptsCurr is indexed by trainIdx, see NOTE in matchBoundinBoxes
+            cv::KeyPoint kpInnerPrev = kptsPrev.at(it2->queryIdx);  // kptsPrev is indexed by queryIdx, see NOTE in matchBoundinBoxes
+
+            // Use cv::norm to calculate the current and previous Euclidean distances between each keypoint in the pair
+            double distCurr = cv::norm(kpOuterCurr.pt - kpInnerCurr.pt);
+            double distPrev = cv::norm(kpOuterPrev.pt - kpInnerPrev.pt);
+
+            double minDist = 100.0;  // Threshold the calculated distRatios by requiring a minimum current distance between keypoints 
+
+            // Avoid division by zero and apply the threshold
+            if (distPrev > std::numeric_limits<double>::epsilon() && distCurr >= minDist) {
+                double distRatio = distCurr / distPrev;
+                distRatios.push_back(distRatio);
+            }
+        }
+    }
+
+     // Only continue if the vector of distRatios is not empty
+    if (distRatios.size() == 0)
+    {
+        TTC = std::numeric_limits<double>::quiet_NaN();
+        return;
+    }
+
+    // As with computeTTCLidar, use the median as a reasonable method of excluding outliers
+    std::sort(distRatios.begin(), distRatios.end());
+    double medianDistRatio = distRatios[distRatios.size() / 2];
+
+    // Finally, calculate a TTC estimate based on these 2D camera features
+    TTC = (-1.0 / frameRate) / (1 - medianDistRatio);
 }
 
 // Find the closest point in X direction after removing the outliers
