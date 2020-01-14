@@ -1,3 +1,4 @@
 build/
 dat/
 .vscode/
+.DS_Store

@@ -102,7 +102,7 @@ int main(int argc, const char *argv[])
 
         /* DETECT & CLASSIFY OBJECTS */
 
-        float confThreshold = 0.2;
+        float confThreshold = 0.3;
         float nmsThreshold = 0.4;        
         detectObjects((dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->boundingBoxes, confThreshold, nmsThreshold,
                       yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, bVis);
